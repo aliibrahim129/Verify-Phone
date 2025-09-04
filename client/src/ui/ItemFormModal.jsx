@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
+ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+ import { listCategories, createCategory } from "../api/categories";
 import { COUNTRIES } from "../utils/countries";
 import {
   Overlay,
@@ -25,7 +27,13 @@ const schema = Yup.object({
   defaultCountry: Yup.string()
     .matches(/^$|^[A-Z]{2}$/, "Use a 2-letter country code or leave Auto")
     .optional(),
+    categoryId: Yup.string()
+   .matches(/^$|^[0-9a-fA-F]{24}$/, "Invalid category id")
+    .optional(),
 });
+
+
+
 
 export default function ItemFormModal({
   initial,
@@ -36,15 +44,27 @@ export default function ItemFormModal({
 }) {
   const isEdit = !!initial;
 
-  const initialValues = useMemo(
-    () => ({
-      name: initial?.name || "",
-      description: initial?.description || "",
-      mobileNumber: initial?.mobileNumber || "",
-      defaultCountry: "", // user picks only when typing local format
-    }),
-    [initial]
-  );
+  const qc = useQueryClient();
+
+const { data: categories = [], isLoading: catsLoading, isError: catsError } = useQuery({
+  queryKey: ["categories"],
+  queryFn: listCategories,
+});
+
+const createCatMut = useMutation({
+  mutationFn: (name) => createCategory(name),
+  onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"] }),
+});
+
+
+ const initialValues = useMemo(() => ({
+   name: initial?.name || "",
+   description: initial?.description || "",
+   mobileNumber: initial?.mobileNumber || "",
+   defaultCountry: "",
+   categoryId:
+     (typeof initial?.categoryId === "object" ? initial?.categoryId?._id : initial?.categoryId) || "",
+ }), [initial]);
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
@@ -123,6 +143,41 @@ export default function ItemFormModal({
                   Tip: choose a country only when typing a local number without “+”. If you already type +961, leave Auto.
                 </small>
               </Row>
+
+              <Row>
+  <Label>Category</Label>
+  <PhoneRow>
+    <Field name="categoryId" as={Select}>
+      <option value="">Unassigned</option>
+      {categories.map((c) => (
+        <option key={c._id} value={c._id}>
+          {c.name}
+        </option>
+      ))}
+    </Field>
+
+    <Button
+      type="button"
+      onClick={async () => {
+        const name = window.prompt("New category name:");
+        if (!name || !name.trim()) return;
+        try {
+          await createCatMut.mutateAsync(name.trim());
+        } catch (e) {
+          alert(e?.response?.data?.error || e.message);
+        }
+      }}
+    >
+      + New
+    </Button>
+  </PhoneRow>
+
+  {touched.categoryId && errors.categoryId && (
+    <small style={{ color: "#ffb4b4" }}>{errors.categoryId}</small>
+  )}
+  {catsLoading && <small style={{ color: "#94a3b8" }}>Loading categories…</small>}
+  {catsError && <small style={{ color: "#ffb4b4" }}>Failed to load categories</small>}
+</Row>
 
               <Actions>
                 <Button type="button" $variant="ghost" onClick={onClose}>

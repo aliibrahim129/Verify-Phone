@@ -35,10 +35,19 @@ const itemSchema = new mongoose.Schema(
       countryName: String,
       operatorName: String,
     },
+    categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
   },
   { timestamps: true }
 );
 const Item = mongoose.model("Item", itemSchema);
+// NEW: Category model
+const categorySchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, unique: true, trim: true },
+  },
+  { timestamps: true }
+);
+const Category = mongoose.model("Category", categorySchema);
 
 // --- Health ---
 app.get("/health", async (_req, res) => {
@@ -52,6 +61,7 @@ const CreateItemSchema = z.object({
   description: z.string().optional(),
   mobileNumber: z.string().trim().optional(),
   defaultCountry: z.string().length(2).optional(), // optional hint, not stored
+  categoryId: z.string().regex(/^[0-9a-fA-F]{24}$/).optional(), // optional ObjectId
 });
 
 const UpdateItemSchema = z.object({
@@ -59,6 +69,31 @@ const UpdateItemSchema = z.object({
   description: z.string().optional(),
   mobileNumber: z.union([z.string(), z.null()]).optional(),
   defaultCountry: z.string().length(2).optional(), // only used for validation, not stored
+   categoryId: z.union([z.string().regex(/^[0-9a-fA-F]{24}$/), z.null()]).optional(), // optional ObjectId or null to clear
+});
+
+// --- Categories: create & list ---
+app.post("/api/categories", async (req, res) => {
+  try {
+    const { name } = req.body || {};
+    if (!name || !name.trim()) return res.status(400).json({ error: "name is required" });
+   const cat = await Category.create({ name: name.trim() });
+    res.status(201).json(cat);
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "Category name already exists" });
+    console.error("[POST /api/categories] error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/categories", async (_req, res) => {
+  try {
+    const cats = await Category.find().sort({ name: 1 });
+    res.json(cats);
+  } catch (err) {
+    console.error("[GET /api/categories] error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // --- Create item ---
@@ -72,7 +107,7 @@ app.post("/api/items", async (req, res) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues.map(i => i.message).join(", ") });
     }
-    const { name, description, mobileNumber, defaultCountry } = parsed.data;
+    const { name, description, mobileNumber, defaultCountry, categoryId } = parsed.data;
 
     let phoneMeta = undefined;
 
@@ -94,11 +129,20 @@ app.post("/api/items", async (req, res) => {
       }
     }
 
+       // Validate categoryId if provided
+    let category = undefined;
+    if (categoryId) {
+      const exists = await Category.exists({ _id: categoryId });
+      if (!exists) return res.status(400).json({ error: "Invalid categoryId" });
+      category = categoryId;
+    }
+
     const item = await Item.create({
       name,
       description,
       mobileNumber: mobileNumber || undefined,
       phoneMeta,
+       categoryId: category,
     });
 
     return res.status(201).json(item);
@@ -110,7 +154,7 @@ app.post("/api/items", async (req, res) => {
 
 app.get("/api/items", async (req, res) => {
   try {
-    const items = await Item.find().sort({ createdAt: -1 });
+    const items = await Item.find().sort({ createdAt: -1 }).populate("categoryId", "name");
     res.json(items);
   } catch (err) {
     console.error("[GET /api/items] error:", err);
@@ -125,7 +169,7 @@ app.get("/api/items/:id", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid id" });
     }
-    const item = await Item.findById(id);
+    const item = await Item.findById(id).populate("categoryId", "name");
     if (!item) return res.status(404).json({ error: "Not found" });
     res.json(item);
   } catch (err) {
@@ -212,6 +256,17 @@ app.put("/api/items/:id", async (req, res) => {
       }
     }
 
+       // Handle category changes
+    if (Object.prototype.hasOwnProperty.call(parsed.data, "categoryId")) {
+      const cid = parsed.data.categoryId;
+      if (cid === null || cid === "") {
+        $unset.categoryId = "";
+      } else if (typeof cid === "string") {
+        const exists = await Category.exists({ _id: cid });
+        if (!exists) return res.status(400).json({ error: "Invalid categoryId" });
+        $set.categoryId = cid;
+      }
+    }
     // If nothing to change
     if (!Object.keys($set).length && !Object.keys($unset).length) {
       return res.json(existing);

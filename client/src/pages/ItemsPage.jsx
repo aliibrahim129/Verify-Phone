@@ -56,6 +56,8 @@ export default function ItemsPage() {
       payload.mobileNumber = "";
     }
 
+    if (payload.categoryId === "") delete payload.categoryId;
+
     try {
       if (editing) {
         await updateMut.mutateAsync({ id: editing._id, payload });
