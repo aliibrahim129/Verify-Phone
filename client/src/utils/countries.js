@@ -1,0 +1,21 @@
+export const COUNTRIES = [
+{ code: "LB", name: "Lebanon" },
+{ code: "US", name: "United States" },
+{ code: "GB", name: "United Kingdom" },
+{ code: "FR", name: "France" },
+{ code: "DE", name: "Germany" },
+{ code: "SA", name: "Saudi Arabia" },
+{ code: "AE", name: "United Arab Emirates" },
+{ code: "EG", name: "Egypt" },
+{ code: "TR", name: "Türkiye" },
+{ code: "JO", name: "Jordan" },
+{ code: "QA", name: "Qatar" },
+{ code: "KW", name: "Kuwait" },
+{ code: "OM", name: "Oman" },
+{ code: "IQ", name: "Iraq" },
+{ code: "PS", name: "Palestine" },
+{ code: "CA", name: "Canada" },
+{ code: "ES", name: "Spain" },
+{ code: "IT", name: "Italy" },
+{ code: "GR", name: "Greece" }
+];
