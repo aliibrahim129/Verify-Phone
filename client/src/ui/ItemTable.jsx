@@ -10,6 +10,7 @@ return (
 <tr>
 <Th style={{ width: 200 }}>Name</Th>
 <Th>Description</Th>
+ <Th style={{ width: 180 }}>Category</Th>
 <Th style={{ width: 260 }}>Phone</Th>
 <Th style={{ width: 160 }}>Operator</Th>
 <Th style={{ width: 150 }}>Actions</Th>
@@ -25,6 +26,7 @@ items.map((it) => (
 <Row key={it._id}>
 <Td><strong>{it.name}</strong></Td>
 <Td>{it.description || "—"}</Td>
+ <Td>{typeof it.categoryId === "object" ? (it.categoryId?.name || "—") : "—"}</Td>
 <Td>
 {it.mobileNumber ? (
 <div>
@@ -44,6 +46,7 @@ items.map((it) => (
 <span style={{ color: "#94a3b8" }}>—</span>
 )}
 </Td>
+
 <Td>
 <Actions>
 <ActionBtn onClick={() => onEdit(it)}>Edit</ActionBtn>
