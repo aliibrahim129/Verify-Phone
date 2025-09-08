@@ -1,4 +1,3 @@
-// server/src/index.js
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -49,12 +48,6 @@ const categorySchema = new mongoose.Schema(
 );
 const Category = mongoose.model("Category", categorySchema);
 
-// --- Health ---
-app.get("/health", async (_req, res) => {
-  const dbOk = mongoose.connection.readyState === 1; // 1 = connected
-  res.json({ ok: true, db: dbOk ? "connected" : "not_connected" });
-});
-
 // --- Validation schema for create ---
 const CreateItemSchema = z.object({
   name: z.string().min(1, "name is required"),
@@ -72,7 +65,7 @@ const UpdateItemSchema = z.object({
    categoryId: z.union([z.string().regex(/^[0-9a-fA-F]{24}$/), z.null()]).optional(), // optional ObjectId or null to clear
 });
 
-// --- Categories: create & list ---
+// --- Categories: create
 app.post("/api/categories", async (req, res) => {
   try {
     const { name } = req.body || {};
@@ -85,7 +78,7 @@ app.post("/api/categories", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
+// --- Categories: getList
 app.get("/api/categories", async (_req, res) => {
   try {
     const cats = await Category.find().sort({ name: 1 });
@@ -97,10 +90,6 @@ app.get("/api/categories", async (_req, res) => {
 });
 
 // --- Create item ---
-// If mobileNumber is present:
-//   - call phone-validator POST /validate
-//   - on 400 -> respond 400
-//   - on success -> save phoneMeta
 app.post("/api/items", async (req, res) => {
   try {
     const parsed = CreateItemSchema.safeParse(req.body);
@@ -120,11 +109,9 @@ app.post("/api/items", async (req, res) => {
         );
         phoneMeta = data; // { countryCode, countryName, operatorName }
       } catch (e) {
-        // If validator said 400, bubble it up as 400
         if (e.response && e.response.status === 400) {
           return res.status(400).json(e.response.data);
         }
-        // Otherwise it's a gateway/network problem
         return res.status(502).json({ error: "Phone validation service unavailable" });
       }
     }
@@ -213,14 +200,13 @@ app.put("/api/items/:id", async (req, res) => {
     const existing = await Item.findById(id);
     if (!existing) return res.status(404).json({ error: "Not found" });
 
-    // Build atomic update
     const $set = {};
     const $unset = {};
 
     if (typeof name !== "undefined") $set.name = name;
     if (typeof description !== "undefined") $set.description = description;
 
-    // Handle mobile changes
+    // Handle mobileNumber changes
     if (Object.prototype.hasOwnProperty.call(parsed.data, "mobileNumber")) {
       // Caller wants to change/clear it
       const incoming = mobileNumber;
@@ -233,10 +219,10 @@ app.put("/api/items/:id", async (req, res) => {
         // Only re-validate if value changed
         const changed = (existing.mobileNumber || "") !== incoming;
         if (!changed) {
-          // Keep current phoneMeta, but still set same number (no-op)
+          // Keep current phoneMeta, but still set same number
           $set.mobileNumber = incoming;
         } else {
-          // Call phone-validator to validate & fetch meta
+          // Call the microservice to validate adn lookup for meta
           try {
             const { data } = await axios.post(
               `${PHONE_VALIDATOR_URL}/validate`,
@@ -248,7 +234,7 @@ app.put("/api/items/:id", async (req, res) => {
             $set.phoneMeta = data;
           } catch (e) {
             if (e.response && e.response.status === 400) {
-              return res.status(400).json(e.response.data); // e.g., { error: "Invalid number" }
+              return res.status(400).json(e.response.data); 
             }
             return res.status(502).json({ error: "Phone validation service unavailable" });
           }

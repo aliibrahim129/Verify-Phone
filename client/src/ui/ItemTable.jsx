@@ -1,6 +1,4 @@
-import React from "react";
 import { Card, Table, Th, Td, Row, Badge, Actions, ActionBtn } from "./ItemTable.styled";
-
 
 export default function ItemTable({ items, loading, onEdit, onDelete }) {
 return (
