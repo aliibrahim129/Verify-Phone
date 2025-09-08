@@ -1,4 +1,3 @@
-// services/phone-validator/src/index.js
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
@@ -23,10 +22,6 @@ function badRequest(res, msg = "Invalid number") {
   return res.status(400).json({ error: msg });
 }
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, provider: "veriphone" });
-});
-
 app.post("/validate", async (req, res) => {
   try {
     const { mobile, defaultCountry } = req.body || {};
@@ -44,7 +39,7 @@ app.post("/validate", async (req, res) => {
     const iso2 = (phone.country || defaultCountry || "").toUpperCase() || null;
     const countryName = iso2 ? regionNames.of(iso2) : null;
 
-    // 2) Real carrier lookup via Veriphone
+    // 2) lookup via Veriphone
     try {
       const url = `${VERIPHONE_BASE_URL}/verify`;
       const { data } = await axios.get(url, {
@@ -52,7 +47,6 @@ app.post("/validate", async (req, res) => {
         timeout: 7000,
       });
 
-      // If provider says invalid, treat as invalid
       if (data && data.phone_valid === false) {
         return badRequest(res, "Invalid number");
       }

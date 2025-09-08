@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
- import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
- import { listCategories, createCategory } from "../api/categories";
+import { listCategories, createCategory } from "../api/categories";
 import { COUNTRIES } from "../utils/countries";
 import {
   Overlay,
@@ -27,13 +26,10 @@ const schema = Yup.object({
   defaultCountry: Yup.string()
     .matches(/^$|^[A-Z]{2}$/, "Use a 2-letter country code or leave Auto")
     .optional(),
-    categoryId: Yup.string()
-   .matches(/^$|^[0-9a-fA-F]{24}$/, "Invalid category id")
+  categoryId: Yup.string()
+    .matches(/^$|^[0-9a-fA-F]{24}$/, "Invalid category id")
     .optional(),
 });
-
-
-
 
 export default function ItemFormModal({
   initial,
@@ -44,27 +40,42 @@ export default function ItemFormModal({
 }) {
   const isEdit = !!initial;
 
-  const qc = useQueryClient();
+  const [categories, setCategories] = useState([]);
+  const [catsLoading, setCatsLoading] = useState(true);
+  const [catsError, setCatsError] = useState(false);
+  const [creatingCat, setCreatingCat] = useState(false);
 
-const { data: categories = [], isLoading: catsLoading, isError: catsError } = useQuery({
-  queryKey: ["categories"],
-  queryFn: listCategories,
-});
+  const fetchCategories = useCallback(async () => {
+    try {
+      setCatsLoading(true);
+      setCatsError(false);
+      const data = await listCategories();
+      setCategories(Array.isArray(data) ? data : []);
 
-const createCatMut = useMutation({
-  mutationFn: (name) => createCategory(name),
-  onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"] }),
-});
+    } catch {
+      setCatsError(true);
+    } finally {
+      setCatsLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
- const initialValues = useMemo(() => ({
-   name: initial?.name || "",
-   description: initial?.description || "",
-   mobileNumber: initial?.mobileNumber || "",
-   defaultCountry: "",
-   categoryId:
-     (typeof initial?.categoryId === "object" ? initial?.categoryId?._id : initial?.categoryId) || "",
- }), [initial]);
+  const initialValues = useMemo(
+    () => ({
+      name: initial?.name || "",
+      description: initial?.description || "",
+      mobileNumber: initial?.mobileNumber || "",
+      defaultCountry: "",
+      categoryId:
+        (typeof initial?.categoryId === "object"
+          ? initial?.categoryId?._id
+          : initial?.categoryId) || "",
+    }),
+    [initial]
+  );
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
@@ -82,6 +93,7 @@ const createCatMut = useMutation({
           <button
             onClick={onClose}
             style={{ background: "transparent", color: "#a6adbb", border: 0, cursor: "pointer" }}
+            aria-label="Close"
           >
             ✕
           </button>
@@ -99,12 +111,7 @@ const createCatMut = useMutation({
 
               <Row>
                 <Label>Name</Label>
-                <Field
-                  name="name"
-                  as={Input}
-                  placeholder="Item name"
-                  autoFocus
-                />
+                <Field name="name" as={Input} placeholder="Item name" autoFocus />
                 {touched.name && errors.name && (
                   <small style={{ color: "#ffb4b4" }}>{errors.name}</small>
                 )}
@@ -112,11 +119,7 @@ const createCatMut = useMutation({
 
               <Row>
                 <Label>Description</Label>
-                <Field
-                  name="description"
-                  as={Input}
-                  placeholder="Optional"
-                />
+                <Field name="description" as={Input} placeholder="Optional" />
               </Row>
 
               <Row>
@@ -145,39 +148,49 @@ const createCatMut = useMutation({
               </Row>
 
               <Row>
-  <Label>Category</Label>
-  <PhoneRow>
-    <Field name="categoryId" as={Select}>
-      <option value="">Unassigned</option>
-      {categories.map((c) => (
-        <option key={c._id} value={c._id}>
-          {c.name}
-        </option>
-      ))}
-    </Field>
+                <Label>Category</Label>
+                <PhoneRow>
+                  <Field name="categoryId" as={Select}>
+                    <option value="">Unassigned</option>
+                    {categories.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Field>
 
-    <Button
-      type="button"
-      onClick={async () => {
-        const name = window.prompt("New category name:");
-        if (!name || !name.trim()) return;
-        try {
-          await createCatMut.mutateAsync(name.trim());
-        } catch (e) {
-          alert(e?.response?.data?.error || e.message);
-        }
-      }}
-    >
-      + New
-    </Button>
-  </PhoneRow>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      const name = window.prompt("New category name:");
+                      if (!name || !name.trim()) return;
+                      try {
+                        setCreatingCat(true);
+                        await createCategory(name.trim());
+                        await fetchCategories(); // refresh after creating
+                      } catch (e) {
+                        alert(e?.response?.data?.error || e.message);
+                      } finally {
+                        setCreatingCat(false);
+                      }
+                    }}
+                    disabled={creatingCat}
+                    aria-busy={creatingCat ? "true" : "false"}
+                  >
+                    {creatingCat ? "Adding..." : "+ New"}
+                  </Button>
+                </PhoneRow>
 
-  {touched.categoryId && errors.categoryId && (
-    <small style={{ color: "#ffb4b4" }}>{errors.categoryId}</small>
-  )}
-  {catsLoading && <small style={{ color: "#94a3b8" }}>Loading categories…</small>}
-  {catsError && <small style={{ color: "#ffb4b4" }}>Failed to load categories</small>}
-</Row>
+                {touched.categoryId && errors.categoryId && (
+                  <small style={{ color: "#ffb4b4" }}>{errors.categoryId}</small>
+                )}
+                {catsLoading && (
+                  <small style={{ color: "#94a3b8" }}>Loading categories…</small>
+                )}
+                {catsError && (
+                  <small style={{ color: "#ffb4b4" }}>Failed to load categories</small>
+                )}
+              </Row>
 
               <Actions>
                 <Button type="button" $variant="ghost" onClick={onClose}>
