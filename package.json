@@ -17,5 +17,8 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "cross-env": "^10.0.0"
+  },
+  "dependencies": {
+    "country-list": "^2.4.1"
   }
 }

@@ -5,7 +5,7 @@ import ItemFormModal from "../ui/ItemFormModal";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { TopBar, PrimaryBtn, ErrorText } from "./ItemsPage.styled";
 
-export default function ItemsPage() {
+const ItemsPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -24,7 +24,7 @@ export default function ItemsPage() {
       setLoading(true);
       setLoadError("");
       const data = await listItems();
-      setItems(Array.isArray(data) ? data : []);
+      setItems(data);
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || "Failed to load";
       setLoadError(msg);
@@ -33,11 +33,6 @@ export default function ItemsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
-
-//handeling form
   const onAdd = () => {
     setEditing(null);
     setFormOpen(true);
@@ -48,16 +43,14 @@ export default function ItemsPage() {
   };
   const onDelete = (item) => setConfirm(item);
 
-  // ---- Create / Update ----
   const submitForm = async (values) => {
     setModalError("");
     setSaving(true);
 
-    // Build payload: strip empty defaultCountry if he leave it auto so we clear it; send "" to clear mobile
     const payload = { ...values };
     if (payload.defaultCountry === "") delete payload.defaultCountry;
     if (typeof payload.mobileNumber === "string" && payload.mobileNumber.trim() === "") {
-      payload.mobileNumber = ""; // explicit “clear” on server
+      payload.mobileNumber = ""; 
     }
     if (payload.categoryId === "") delete payload.categoryId;
 
@@ -70,14 +63,13 @@ export default function ItemsPage() {
       setFormOpen(false);
       await fetchItems(); 
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || "Request failed";
+      const msg = err?.response?.data?.error || err?.message || "Request failed"; 
       setModalError(msg);
     } finally {
       setSaving(false);
     }
   };
 
-  // ---- Delete ----
   const confirmDelete = async () => {
     if (!confirm) return;
     try {
@@ -92,6 +84,10 @@ export default function ItemsPage() {
       setDeletingId(null);
     }
   };
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
 
   return (
     <div>
@@ -115,6 +111,7 @@ export default function ItemsPage() {
           onClose={() => {
             setModalError("");
             setFormOpen(false);
+
           }}
           onSubmit={submitForm}
           errorText={modalError}
@@ -134,3 +131,5 @@ export default function ItemsPage() {
     </div>
   );
 }
+
+export default ItemsPage;

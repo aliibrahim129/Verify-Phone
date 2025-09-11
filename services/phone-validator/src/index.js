@@ -30,6 +30,7 @@ app.post("/validate", async (req, res) => {
     }
 
     // 1) Parse & basic validity (format) using libphonenumber
+    // and here we are puting the +xyz code for country if defaultCountry is provided
     const phone = parsePhoneNumberFromString(mobile.trim(), defaultCountry);
     if (!phone || !phone.isValid()) {
       return badRequest(res, "Invalid number");

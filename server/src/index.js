@@ -144,7 +144,7 @@ app.get("/api/items", async (req, res) => {
     const items = await Item.find().sort({ createdAt: -1 }).populate("categoryId", "name");
     res.json(items);
   } catch (err) {
-    console.error("[GET /api/items] error:", err);
+    console.error("[GET /api/items] error:", err);NP
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -235,7 +235,7 @@ app.put("/api/items/:id", async (req, res) => {
           } catch (e) {
             if (e.response && e.response.status === 400) {
               return res.status(400).json(e.response.data); 
-            }
+             }
             return res.status(502).json({ error: "Phone validation service unavailable" });
           }
         }

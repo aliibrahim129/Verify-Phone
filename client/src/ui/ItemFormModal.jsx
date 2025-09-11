@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { listCategories, createCategory } from "../api/categories";
-import { COUNTRIES } from "../utils/countries";
 import {
   Overlay,
   Modal,
@@ -17,12 +16,12 @@ import {
   PhoneRow,
   Alert,
 } from "./ItemFormModal.styled";
+import { getData } from "country-list";
 
 const schema = Yup.object({
   name: Yup.string().trim().required("Name is required"),
   description: Yup.string().optional(),
   mobileNumber: Yup.string().optional(),
-  // allow empty string (Auto) or a two-letter ISO code
   defaultCountry: Yup.string()
     .matches(/^$|^[A-Z]{2}$/, "Use a 2-letter country code or leave Auto")
     .optional(),
@@ -31,37 +30,34 @@ const schema = Yup.object({
     .optional(),
 });
 
-export default function ItemFormModal({
+const ItemFormModal = ({
   initial,
   onClose,
   onSubmit,
   errorText,
   submitting,
-}) {
+}) => {
+
   const isEdit = !!initial;
 
   const [categories, setCategories] = useState([]);
-  const [catsLoading, setCatsLoading] = useState(true);
-  const [catsError, setCatsError] = useState(false);
-  const [creatingCat, setCreatingCat] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState(false);
+  const [creatingCategories, setCreatingCategories] = useState(false);
 
   const fetchCategories = useCallback(async () => {
     try {
-      setCatsLoading(true);
-      setCatsError(false);
+      setCategoriesLoading(true);
+      setCategoriesError(false);
       const data = await listCategories();
-      setCategories(Array.isArray(data) ? data : []);
+      setCategories(data);
 
     } catch {
-      setCatsError(true);
+      setCategoriesError(true);
     } finally {
-      setCatsLoading(false);
+      setCategoriesLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
 
   const initialValues = useMemo(
     () => ({
@@ -80,10 +76,17 @@ export default function ItemFormModal({
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
       await onSubmit(values);
-    } finally {
+    }catch (err) {
+      console.error("Submit error:", err);
+    }
+     finally {
       setSubmitting(false);
     }
   };
+
+    useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   return (
     <Overlay>
@@ -132,9 +135,9 @@ export default function ItemFormModal({
                   />
                   <Field name="defaultCountry" as={Select}>
                     <option value="">Auto</option>
-                    {COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.name} ({c.code})
+                    {getData()?.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.name} ({country.code})
                       </option>
                     ))}
                   </Field>
@@ -152,9 +155,9 @@ export default function ItemFormModal({
                 <PhoneRow>
                   <Field name="categoryId" as={Select}>
                     <option value="">Unassigned</option>
-                    {categories.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name}
+                    {categories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
                       </option>
                     ))}
                   </Field>
@@ -165,29 +168,28 @@ export default function ItemFormModal({
                       const name = window.prompt("New category name:");
                       if (!name || !name.trim()) return;
                       try {
-                        setCreatingCat(true);
+                        setCreatingCategories(true);
                         await createCategory(name.trim());
-                        await fetchCategories(); // refresh after creating
+                        await fetchCategories(); 
                       } catch (e) {
                         alert(e?.response?.data?.error || e.message);
                       } finally {
-                        setCreatingCat(false);
+                        setCreatingCategories(false);
                       }
                     }}
-                    disabled={creatingCat}
-                    aria-busy={creatingCat ? "true" : "false"}
+                    disabled={creatingCategories}
                   >
-                    {creatingCat ? "Adding..." : "+ New"}
+                    {creatingCategories ? "Adding..." : "+ New"}
                   </Button>
                 </PhoneRow>
 
                 {touched.categoryId && errors.categoryId && (
                   <small style={{ color: "#ffb4b4" }}>{errors.categoryId}</small>
                 )}
-                {catsLoading && (
+                {categoriesLoading && (
                   <small style={{ color: "#94a3b8" }}>Loading categories…</small>
                 )}
-                {catsError && (
+                {categoriesError && (
                   <small style={{ color: "#ffb4b4" }}>Failed to load categories</small>
                 )}
               </Row>
@@ -213,3 +215,4 @@ export default function ItemFormModal({
     </Overlay>
   );
 }
+export default ItemFormModal;
