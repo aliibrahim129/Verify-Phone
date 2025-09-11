@@ -13,7 +13,6 @@ const PORT = process.env.PORT || 4000;
 const MONGO_URL = process.env.MONGO_URL;
 const PHONE_VALIDATOR_URL = process.env.PHONE_VALIDATOR_URL || "http://localhost:4001";
 
-// --- Mongo connection ---
 mongoose.set("strictQuery", true);
 mongoose
   .connect(MONGO_URL)
@@ -23,7 +22,6 @@ mongoose
     process.exit(1);
   });
 
-// --- Item model ---
 const itemSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -39,7 +37,7 @@ const itemSchema = new mongoose.Schema(
   { timestamps: true }
 );
 const Item = mongoose.model("Item", itemSchema);
-// NEW: Category model
+
 const categorySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true, trim: true },
@@ -48,24 +46,22 @@ const categorySchema = new mongoose.Schema(
 );
 const Category = mongoose.model("Category", categorySchema);
 
-// --- Validation schema for create ---
 const CreateItemSchema = z.object({
   name: z.string().min(1, "name is required"),
   description: z.string().optional(),
   mobileNumber: z.string().trim().optional(),
-  defaultCountry: z.string().length(2).optional(), // optional hint, not stored
-  categoryId: z.string().regex(/^[0-9a-fA-F]{24}$/).optional(), // optional ObjectId
+  defaultCountry: z.string().length(2).optional(),
+  categoryId: z.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
 });
 
 const UpdateItemSchema = z.object({
   name: z.string().min(1, "name cannot be empty").optional(),
   description: z.string().optional(),
   mobileNumber: z.union([z.string(), z.null()]).optional(),
-  defaultCountry: z.string().length(2).optional(), // only used for validation, not stored
-   categoryId: z.union([z.string().regex(/^[0-9a-fA-F]{24}$/), z.null()]).optional(), // optional ObjectId or null to clear
+  defaultCountry: z.string().length(2).optional(), 
+   categoryId: z.union([z.string().regex(/^[0-9a-fA-F]{24}$/), z.null()]).optional(),
 });
 
-// --- Categories: create
 app.post("/api/categories", async (req, res) => {
   try {
     const { name } = req.body || {};
@@ -78,7 +74,6 @@ app.post("/api/categories", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-// --- Categories: getList
 app.get("/api/categories", async (_req, res) => {
   try {
     const cats = await Category.find().sort({ name: 1 });
@@ -89,7 +84,6 @@ app.get("/api/categories", async (_req, res) => {
   }
 });
 
-// --- Create item ---
 app.post("/api/items", async (req, res) => {
   try {
     const parsed = CreateItemSchema.safeParse(req.body);
@@ -144,12 +138,11 @@ app.get("/api/items", async (req, res) => {
     const items = await Item.find().sort({ createdAt: -1 }).populate("categoryId", "name");
     res.json(items);
   } catch (err) {
-    console.error("[GET /api/items] error:", err);NP
+    console.error("[GET /api/items] error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// --- GET one item by id (optional but handy) ---
 app.get("/api/items/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -165,7 +158,6 @@ app.get("/api/items/:id", async (req, res) => {
   }
 });
 
-// --- DELETE one item by id ---
 app.delete("/api/items/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -181,7 +173,6 @@ app.delete("/api/items/:id", async (req, res) => {
   }
 });
 
-// --- UPDATE one item by id ---
 app.put("/api/items/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -274,7 +265,6 @@ app.put("/api/items/:id", async (req, res) => {
   }
 });
 
-// --- Start ---
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`);
 });

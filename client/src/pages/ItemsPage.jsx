@@ -18,7 +18,6 @@ const ItemsPage = () => {
   const [saving, setSaving] = useState(false);          
   const [deletingId, setDeletingId] = useState(null);   
 
-  // ---- Fetch list ----
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
